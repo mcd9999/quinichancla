@@ -1,0 +1,2 @@
+import Link from "next/link"; import { session } from "@/lib/auth";
+export default async function Nav(){const s=await session();return <nav className="nav"><Link href="/" className="brand">QUINI<span>CHANCLA</span></Link><div className="links">{s&&<><Link href="/pronosticos">Pronósticos</Link><Link href="/gastos">Gastos</Link>{s.role==="ADMIN"&&<Link href="/admin">Administración</Link>}<form action="/api/auth/logout" method="post"><button className="btn secondary">Salir</button></form></>}</div></nav>}

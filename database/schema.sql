@@ -1,0 +1,70 @@
+CREATE TABLE users (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(80) NOT NULL,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('USER','ADMIN') NOT NULL DEFAULT 'USER',
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE pools (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  round_name VARCHAR(80) NOT NULL,
+  stake DECIMAL(10,2) NOT NULL,
+  deadline DATETIME NOT NULL,
+  status ENUM('DRAFT','OPEN','CLOSED','SETTLED') NOT NULL DEFAULT 'DRAFT',
+  created_by BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE TABLE matches (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  pool_id BIGINT UNSIGNED NOT NULL,
+  position TINYINT UNSIGNED NOT NULL,
+  home_team VARCHAR(100) NOT NULL,
+  away_team VARCHAR(100) NOT NULL,
+  result ENUM('1','X','2') NULL,
+  UNIQUE KEY uniq_pool_position (pool_id, position),
+  FOREIGN KEY (pool_id) REFERENCES pools(id) ON DELETE CASCADE
+);
+
+CREATE TABLE predictions (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  pool_id BIGINT UNSIGNED NOT NULL,
+  submitted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_user_pool (user_id, pool_id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (pool_id) REFERENCES pools(id)
+);
+
+CREATE TABLE prediction_items (
+  prediction_id BIGINT UNSIGNED NOT NULL,
+  match_id BIGINT UNSIGNED NOT NULL,
+  forecast ENUM('1','X','2') NOT NULL,
+  PRIMARY KEY (prediction_id, match_id),
+  FOREIGN KEY (prediction_id) REFERENCES predictions(id) ON DELETE CASCADE,
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE
+);
+
+CREATE TABLE ledger (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  pool_id BIGINT UNSIGNED NULL,
+  type ENUM('CONTRIBUTION','STAKE','ADJUSTMENT','PRIZE') NOT NULL,
+  amount DECIMAL(10,2) NOT NULL COMMENT 'Positivo suma saldo; negativo lo descuenta',
+  note VARCHAR(255) NULL,
+  created_by BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (pool_id) REFERENCES pools(id),
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE VIEW user_balances AS
+SELECT u.id AS user_id, u.name, COALESCE(SUM(l.amount), 0) AS balance
+FROM users u LEFT JOIN ledger l ON l.user_id = u.id
+GROUP BY u.id, u.name;
